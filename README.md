@@ -1,6 +1,4 @@
-Cross-platform controller for the AM43 blind motor
 # AM43-python-controller
-=============
 Cross-platform controller for the AM43 blind motor
 
 Table of Contents
@@ -37,4 +35,3 @@ Authors
 License
 -------
 
-[BSD © Datasnakes](LICENSE)
