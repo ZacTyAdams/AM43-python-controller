@@ -69,6 +69,7 @@ def update_blind_in_db(name, mac_address, battery, position, light):
         return msg
         conn.close()
 
+
 @app.route('/')
 def index():
     return 'Hello, World!'
