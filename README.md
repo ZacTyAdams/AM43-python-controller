@@ -33,4 +33,3 @@ Run using:
 
 ## License
 
-[BSD © Datasnakes](LICENSE)
