@@ -32,7 +32,7 @@ conn.execute('''CREATE TABLE IF NOT EXISTS "blinds" (
 conn.close()
 
 
-def ping_blind(mac_address=None, blind=None):
+def ping_blind(mac_address=None, blind=None, intended_position=None):
     conn = sqlite3.connect('am43.db')
     try:
         if blind is None and mac_address is None:
@@ -48,12 +48,17 @@ def ping_blind(mac_address=None, blind=None):
         print(blinds)
         for blind in blinds:
             properties = blind.get_properties()
-            # print(blind._device.addr)
-            conn.execute("UPDATE blinds SET battery=?, position=?, light=? WHERE mac_address=?", (properties.battery, properties.position, properties.light, blind._device.addr.upper()))
-            conn.commit()
-            msg="Successfully updated blind in database"
-            print(msg)
-            print(properties)
+            if intended_position is not None and int(properties.position) not in range(int(intended_position) - 5, int(intended_position) + 5):
+                blind.set_position(int(intended_position))
+                msg = "Not all blinds were set correctly retrying in 5 seconds: Blind %s, position %s" % (blind._device.addr, str(intended_position))
+                print(msg)
+                threading.Thread(target=set_blind_position, args=(blind._device.addr, intended_position, True)).start()
+            else:
+                conn.execute("UPDATE blinds SET battery=?, position=?, light=? WHERE mac_address=?", (properties.battery, properties.position, properties.light, blind._device.addr.upper()))
+                conn.commit()
+                msg="Successfully updated blind in database"
+                print(msg)
+                print(properties)
             blind.disconnect()
     except Exception as e:
         msg="Error updating blind in database, performing rollback"
@@ -98,7 +103,7 @@ def get_blinds_from_db():
     finally:
         conn.close()
 
-def set_blind_position(mac_address, position):
+def set_blind_position(mac_address, position, retry=False):
     conn = sqlite3.connect('am43.db')
     try:
         blind = am43.search(mac_address)
@@ -109,6 +114,11 @@ def set_blind_position(mac_address, position):
         conn.execute("UPDATE blinds SET position=? WHERE mac_address=?", (position, mac_address))
         conn.commit()
         print("Successfully updated blind in database")
+        if retry:
+            time.sleep(5)
+            ping_thread = threading.Timer(60, ping_blind, args=(mac_address, None, position))
+            ping_thread.start()
+            print("thread started, waiting to ping")
     except Exception as e:
         msg="Error setting blind position"
         print(msg)
@@ -182,7 +192,7 @@ def set_position():
         return "Invalid Request", 400
     elif not 'mac_address' in request.json and 'position' in request.json:
         set_all_blinds_position(request.json['position'])
-        ping_thread = threading.Timer(60, ping_blind)
+        ping_thread = threading.Timer(60, ping_blind, args=(None, None, request.json['position']))
         ping_thread.start()
         print("thread started, waiting to ping")
         return get_blinds_from_db(), 201
