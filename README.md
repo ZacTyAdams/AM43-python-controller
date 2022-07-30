@@ -22,10 +22,10 @@ Install using:
 
 ## Usage
 
-Needing to add more endpoints
-
 Run using:
 `flask run --host=0.0.0.0`
+
+On first run you'll get a prompt to add blinds to the DB, you'll need your blind's mac address to do this. If you'd like to run the setup process again just remove the generated am43.db file. 
 
 ## Authors
 
