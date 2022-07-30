@@ -8,6 +8,7 @@ Cross-platform controller for the AM43 blind motor
 - [Project Background](#project-background)
 - [Install & Setup](#install-&-setup)
 - [Usage](#usage)
+- [Endpoints](#endpoints)
 - [Authors](#authors)
 - [License](#license)
 
@@ -38,6 +39,14 @@ _On Raspberry Pis_
 3. Then just enable your service:
     - `sudo systemctl enable blind_controller.service`
 
+## Endpoints
+
+|Endpoint |Parameters | Description|
+--- | --- | --- |
+|POST /blinds| - `mac_address` <br> - `name`| Old endpoint to add blinds to the system|
+|GET /blinds | none | Returns the `name`, `mac_address`, `battery`, `position`, and `light` of all blinds currently in the system|
+|POST /blinds/set| - `position` <br> - `mac_address` *optional* | Sets all blinds in the system to the value of `position` (0-100) or can set the position of single blind when `mac_address` is given|
+|GET /blinds/update| none | Pings all blinds in system for device properties then updates the DB
 ## Authors
 
 - Zac Adams | [@ZacTyAdams](https://github.com/ZacTyAdams)
