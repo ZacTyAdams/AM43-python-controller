@@ -43,9 +43,9 @@ _On Raspberry Pis_
 
 |Endpoint |Parameters | Description|
 --- | --- | --- |
-|POST /blinds| - `mac_address` <br> - `name`| Old endpoint to add blinds to the system|
+|POST /blinds| `mac_address` <br> `name`| Old endpoint to add blinds to the system|
 |GET /blinds | none | Returns the `name`, `mac_address`, `battery`, `position`, and `light` of all blinds currently in the system|
-|POST /blinds/set| - `position` <br> - `mac_address` *optional* | Sets all blinds in the system to the value of `position` (0-100) or can set the position of single blind when `mac_address` is given|
+|POST /blinds/set| `position` <br> `mac_address` *optional* | Sets all blinds in the system to the value of `position` (0-100) or can set the position of single blind when `mac_address` is given|
 |GET /blinds/update| none | Pings all blinds in system for device properties then updates the DB
 ## Authors
 
