@@ -8,29 +8,9 @@ import json
 import threading
 import time
 
-
 app = Flask(__name__)
 app.config["DEBUG"] = True
 app.run(host='0.0.0.0')
-
-
-try:
-    conn = sqlite3.connect('am43.db')
-    print("Opened database successfully")
-except:
-    print("Error opening database")
-    exit()
-
-conn.execute('''CREATE TABLE IF NOT EXISTS "blinds" (
-        "name"	TEXT,
-        "mac_address"	TEXT,
-        "battery"	INTEGER,
-        "position"	INTEGER,
-        "light"	INTEGER
-    );''')
-
-conn.close()
-
 
 def ping_blind(mac_address=None, blind=None, intended_position=None):
     conn = sqlite3.connect('am43.db')
@@ -163,6 +143,50 @@ def set_all_blinds_position(position):
     return True
     
 # ping_thread = threading.Timer(30, ping_blind, [request.json['mac_address']])
+
+if os.path.exists('am43.db'):
+    print("Database exists, starting normally")
+else:
+    print("Database does not exist, creating");
+    try:
+        conn = sqlite3.connect('am43.db')
+        conn.execute('''CREATE TABLE IF NOT EXISTS "blinds" (
+            "name"	TEXT,
+            "mac_address"	TEXT,
+            "battery"	INTEGER,
+            "position"	INTEGER,
+            "light"	INTEGER
+        );''')
+        print("Database created, beginning first time setup")
+        while(True):
+            name = input("Please enter the name of the blind: ")
+            mac_address = input("Please enter the mac address of this blind: ")
+            input_blind_to_db(name, mac_address, 0, 0, 0)
+            ping_blind(mac_address)
+            more_blinds = input("Do you want to add more blinds? (y/n): ")
+            if more_blinds == "n":
+                break
+    except Exception as e:
+        print("Error creating database, during setup")
+        print(e)
+
+
+try:
+    conn = sqlite3.connect('am43.db')
+    print("Opened database successfully")
+except:
+    print("Error opening database")
+    exit()
+
+# conn.execute('''CREATE TABLE IF NOT EXISTS "blinds" (
+#         "name"	TEXT,
+#         "mac_address"	TEXT,
+#         "battery"	INTEGER,
+#         "position"	INTEGER,
+#         "light"	INTEGER
+#     );''')
+
+conn.close()
 
 @app.route('/')
 def index():

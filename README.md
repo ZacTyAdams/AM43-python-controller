@@ -22,10 +22,21 @@ Install using:
 
 ## Usage
 
-Needing to add more endpoints
-
 Run using:
 `flask run --host=0.0.0.0`
+
+On first run you'll get a prompt to add blinds to the DB, you'll need your blind's mac address to do this. If you'd like to run the setup process again just remove the generated am43.db file. 
+
+To have this app run on startup, I recommend setting up a service after initial setup:
+
+_On Raspberry Pis_
+1. Create a service like the one in this repo: 
+    - `sudo nano /etc/systemd/system/blind_controller.service`
+2. Save and chmod the service and verify it starts correctly: 
+    - `sudo systemctl start blind_controller.service`
+    - `sudo systemctl status blind_controller.service`
+3. Then just enable your service:
+    - `sudo systemctl enable blind_controller.service`
 
 ## Authors
 
