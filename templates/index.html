@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="{{ url_for('static', filename= 'css/style.css') }}">
+    <title>Blind Controller</title>
+</head>
+<body>
+   <h1>Blind Controller Web</h1>
+   <!-- <div>
+    {% for blind in blinds %}
+    <p>{{ blind.name }} : {{ blind.mac_address }} = Battery: {{ blind.battery }} Position: {{ blind.position }}</p>
+   {% endfor %}
+   </div> -->
+   <table>
+    <tr>
+        <th>Name</th>
+        <th>Mac Address</th>
+        <th>Battery</th>
+        <th>Position</th>
+    </tr>
+    {% for blind in blinds %}
+    <tr>
+        <td>{{ blind.name }}</td>
+        <td>{{ blind.mac_address }}</td>
+        <td>{{ blind.battery }}</td>
+        <td>{{ blind.position }}</td>
+    </tr>
+    {% endfor %}
+   </table>
+   <!-- button to add blind -->
+    <form action="{{ url_for('add_blind') }}" method="post">
+     <input type="text" name="name" placeholder="Name">
+     <input type="text" name="mac_address" placeholder="Mac Address">
+     <input type="submit" value="Add Blind">
+    </form>
+   
+</body>
+</html>
