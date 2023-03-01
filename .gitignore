@@ -1,3 +1,6 @@
 am43.db
 __pycache__
 am43controlerenv
+static/.DS_Store
+.gitignore
+.DS_Store

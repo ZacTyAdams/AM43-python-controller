@@ -1,6 +1,6 @@
 from datetime import datetime
-from flask import Flask, request, jsonify
-import am43
+from flask import Flask, render_template, request, jsonify
+# import am43
 import sqlite3
 import os
 from subprocess import Popen
@@ -190,7 +190,12 @@ conn.close()
 
 @app.route('/')
 def index():
-    return 'Hello, World!'
+    # return 'Hello, World!'
+    blinds = json.loads(get_blinds_from_db())
+    for blind in blinds:
+        print(blind["name"])
+    # print(blinds[0])
+    return render_template('index.html', blinds=blinds)
 
 @app.route('/blinds', methods=['GET'])
 def get_blinds():
@@ -198,11 +203,17 @@ def get_blinds():
 
 @app.route('/blinds', methods=['POST'])
 def add_blind():
-    if not request.json or not 'mac_address' in request.json or not 'name' in request.json:
-        print(request.json)
-        return "Invalid Request", 400
+    print(request.form)
+    print(request.form["name"])
+    print(request.form["mac_address"])
+    # print(request.json['name'])
+    # print(request.json['mac_address'])
+    # if not request.json or not 'mac_address' in request.json or not 'name' in request.json:
+    #     print(request.json)
+    #     return "Invalid Request", 400
 
-    input_blind_to_db(request.json['name'], request.json['mac_address'], 0, 0, 0)
+    # input_blind_to_db(request.json['name'], request.json['mac_address'], 0, 0, 0)
+    input_blind_to_db(request.form["name"], request.form["mac_address"], 0, 0, 0)
     ping_blind(request.json['mac_address'])
     return get_blinds_from_db(), 201
 
