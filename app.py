@@ -254,20 +254,26 @@ def add_blind():
 
 @app.route('/blinds/set', methods=['POST'])
 def set_position():
+    position = 0
     for arg in request.json:
         print(arg)
     print(request.json)
-    if not request.json or not 'position' in request.json and not 'mac_address' in request.json:
+    try:
+        position = int(float(request.json['position']))
+        print("Position is: " + str(position))
+    except Exception as e:
+        print(e) 
+    if not request.json or 'position' not in request.json and 'mac_address' not in request.json:
         print(request.json)
         return "Invalid Request", 400
-    elif not 'mac_address' in request.json and 'position' in request.json:
-        set_all_blinds_position(request.json['position'])
-        ping_thread = threading.Timer(60, ping_blind, args=(None, None, request.json['position']))
+    elif 'mac_address' not in request.json and 'position' in request.json:
+        set_all_blinds_position(position)
+        ping_thread = threading.Timer(60, ping_blind, args=(None, None, position))
         ping_thread.start()
         print("thread started, waiting to ping")
         return get_blinds_from_db(), 201
     else:
-        set_blind_position(request.json['mac_address'], request.json['position'])
+        set_blind_position(request.json['mac_address'], position)
         ping_thread = threading.Timer(30, ping_blind, [request.json['mac_address']])
         ping_thread.start()
         print("thread started, waiting to ping")
