@@ -15,18 +15,15 @@ app.run(host='0.0.0.0')
 def ping_blind(mac_address=None, blind=None, intended_position=None):
     conn = sqlite3.connect('am43.db')
     try:
-        if blind is None and mac_address is None:
-            blinds_list = get_blinds_from_db()
-            mac_list = []
-            blinds_list = json.loads(blinds_list)
-            for blind in blinds_list:
-                mac_list.append(str(blind['mac_address']))
-            print(mac_list)
-            blinds = am43.search(*mac_list)
-        else:
-            blinds = [am43.search(mac_address)]
-        print(blinds)
-        for blind in blinds:
+        blinds_list = get_blinds_from_db()
+        mac_list = []
+        blinds_list = json.loads(blinds_list)
+        for blind in blinds_list:
+            mac_list.append(str(blind['mac_address']))
+        print(mac_list)
+            
+        if len(mac_list) == 1:
+            blind = am43.search(*mac_list)
             properties = blind.get_properties()
             if intended_position is not None and int(properties.position) not in range(int(intended_position) - 5, int(intended_position) + 5):
                 blind.set_position(int(intended_position))
@@ -40,6 +37,22 @@ def ping_blind(mac_address=None, blind=None, intended_position=None):
                 print(msg)
                 print(properties)
             blind.disconnect()
+        else:
+            blinds = am43.search(*mac_list)
+            for blind in blinds:
+                properties = blind.get_properties()
+                if intended_position is not None and int(properties.position) not in range(int(intended_position) - 5, int(intended_position) + 5):
+                    blind.set_position(int(intended_position))
+                    msg = "Not all blinds were set correctly retrying in 5 seconds: Blind %s, position %s" % (blind._device.addr, str(intended_position))
+                    print(msg)
+                    threading.Thread(target=set_blind_position, args=(blind._device.addr, intended_position, True)).start()
+                else:
+                    conn.execute("UPDATE blinds SET battery=?, position=?, light=? WHERE mac_address=?", (properties.battery, properties.position, properties.light, blind._device.addr.upper()))
+                    conn.commit()
+                    msg="Successfully updated blind in database"
+                    print(msg)
+                    print(properties)
+                blind.disconnect()
     except Exception as e:
         msg="Error updating blind in database, performing rollback"
         print(msg)
@@ -118,8 +131,12 @@ def set_all_blinds_position(position):
         mac_list.append(str(blind['mac_address']))
     print(mac_list)
     try:
-        blinds = am43.search(*mac_list)
-        for blind in blinds:
+        if len(mac_list) == 0:
+            print("No blinds found")
+            return False
+        # I know this is ugly but it's late and I need my blinds to work in the morning. Will clean tomorrow?
+        elif len(mac_list) == 1:
+            blind = am43.search(*mac_list)
             conn = sqlite3.connect('am43.db') 
             try:  
                 blind.set_position(int(position))
@@ -135,6 +152,24 @@ def set_all_blinds_position(position):
             finally:
                 conn.close()
                 blind.disconnect()
+        else:
+            blinds = am43.search(*mac_list)
+            for blind in blinds:
+                conn = sqlite3.connect('am43.db') 
+                try:  
+                    blind.set_position(int(position))
+                    msg="Successfully set blind position"
+                    print(msg)
+                    conn.execute("UPDATE blinds SET position=? WHERE mac_address=?", (position, blind._device.addr))
+                    conn.commit()
+                    print("Successfully updated blind in database")
+                except Exception as e:
+                    msg="Error setting blind position"
+                    print(msg)
+                    print(e)
+                finally:
+                    conn.close()
+                    blind.disconnect()
     except Exception as e:
         print("Error when trying to set all blinds position")
         print(e)
@@ -219,20 +254,26 @@ def add_blind():
 
 @app.route('/blinds/set', methods=['POST'])
 def set_position():
+    position = 0
     for arg in request.json:
         print(arg)
     print(request.json)
-    if not request.json or not 'position' in request.json and not 'mac_address' in request.json:
+    try:
+        position = int(float(request.json['position']))
+        print("Position is: " + str(position))
+    except Exception as e:
+        print(e) 
+    if not request.json or 'position' not in request.json and 'mac_address' not in request.json:
         print(request.json)
         return "Invalid Request", 400
-    elif not 'mac_address' in request.json and 'position' in request.json:
-        set_all_blinds_position(request.json['position'])
-        ping_thread = threading.Timer(60, ping_blind, args=(None, None, request.json['position']))
+    elif 'mac_address' not in request.json and 'position' in request.json:
+        set_all_blinds_position(position)
+        ping_thread = threading.Timer(60, ping_blind, args=(None, None, position))
         ping_thread.start()
         print("thread started, waiting to ping")
         return get_blinds_from_db(), 201
     else:
-        set_blind_position(request.json['mac_address'], request.json['position'])
+        set_blind_position(request.json['mac_address'], position)
         ping_thread = threading.Timer(30, ping_blind, [request.json['mac_address']])
         ping_thread.start()
         print("thread started, waiting to ping")
