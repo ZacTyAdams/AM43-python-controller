@@ -24,6 +24,8 @@ def ping_blind(mac_address=None, group=None, blind=None, intended_position=None)
                     msg = "Blind may have received another while this thread was in sleep, returning from this call"
                     print(msg)
                     return
+                else:
+                    print("Blind position is correct, continuing")
                 mac_list.append(str(blind['mac_address']))
         print(mac_list)
             
@@ -342,13 +344,13 @@ def set_position():
     elif 'group' in request.json and 'position' in request.json:
         print("Closing blinds in group: " + request.json['group'])
         set_group_blinds_position(request.json['group'], position)
-        ping_thread = threading.Timer(60, ping_blind, args=(None, request.json['group'], position))
+        ping_thread = threading.Timer(60, ping_blind, args=(None, request.json['group'], None, position))
         ping_thread.start()
         print("thread started, waiting to ping")
         return get_blinds_from_db(), 201
     elif 'mac_address' not in request.json and 'position' in request.json:
         set_all_blinds_position(position)
-        ping_thread = threading.Timer(60, ping_blind, args=(None, None, position))
+        ping_thread = threading.Timer(60, ping_blind, args=(None, None, None, position))
         ping_thread.start()
         print("thread started, waiting to ping")
         return get_blinds_from_db(), 201
