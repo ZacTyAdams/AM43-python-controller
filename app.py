@@ -20,49 +20,11 @@ def ping_blind(mac_address=None, group=None, blind=None, intended_position=None)
         blinds_list = json.loads(blinds_list)
         for blind in blinds_list:
             if group is None or group == blind['group']:
+                if intended_position != blind['position']:
+                    msg = "Blind may have received another while this thread was in sleep, returning from this call"
+                    print(msg)
+                    return
                 mac_list.append(str(blind['mac_address']))
-        print(mac_list)
-            
-        if len(mac_list) == 1:
-            blind = am43.search(*mac_list)
-            properties = blind.get_properties()
-            if intended_position is not None and int(properties.position) not in range(int(intended_position) - 5, int(intended_position) + 5):
-                blind.set_position(int(intended_position))
-                msg = "Not all blinds were set correctly retrying in 5 seconds: Blind %s, position %s" % (blind._device.addr, str(intended_position))
-                print(msg)
-                threading.Thread(target=set_blind_position, args=(blind._device.addr, intended_position, True)).start()
-            else:
-                conn.execute("UPDATE blinds SET battery=?, position=?, light=? WHERE mac_address=?", (properties.battery, properties.position, properties.light, blind._device.addr.upper()))
-                conn.commit()
-                msg="Successfully updated blind in database"
-                print(msg)
-                print(properties)
-            blind.disconnect()
-        else:
-            blinds = am43.search(*mac_list)
-            for blind in blinds:
-                properties = blind.get_properties()
-                if intended_position is not None and int(properties.position) not in range(int(intended_position) - 5, int(intended_position) + 5):
-                    blind.set_position(int(intended_position))
-                    msg = "Not all blinds were set correctly retrying in 5 seconds: Blind %s, position %s" % (blind._device.addr, str(intended_position))
-                    print(msg)
-                    threading.Thread(target=set_blind_position, args=(blind._device.addr, intended_position, True)).start()
-                else:
-                    conn.execute("UPDATE blinds SET battery=?, position=?, light=? WHERE mac_address=?", (properties.battery, properties.position, properties.light, blind._device.addr.upper()))
-                    conn.commit()
-                    msg="Successfully updated blind in database"
-                    print(msg)
-                    print(properties)
-                blind.disconnect()
-        blinds_list = get_blinds_from_db()
-        mac_list = []
-        blinds_list = json.loads(blinds_list)
-        for blind in blinds_list:
-            if intended_position != blind['position']:
-                msg = "Blind may have received another while this thread was in sleep, returning from this call"
-                print(msg)
-                return
-            mac_list.append(str(blind['mac_address']))
         print(mac_list)
             
         if len(mac_list) == 1:
