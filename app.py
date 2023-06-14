@@ -19,6 +19,10 @@ def ping_blind(mac_address=None, blind=None, intended_position=None):
         mac_list = []
         blinds_list = json.loads(blinds_list)
         for blind in blinds_list:
+            if intended_position != blind['position']:
+                msg = "Blind may have received another while this thread was in sleep, returning from this call"
+                print(msg)
+                return
             mac_list.append(str(blind['mac_address']))
         print(mac_list)
             
@@ -142,9 +146,13 @@ def set_all_blinds_position(position):
                 blind.set_position(int(position))
                 msg="Successfully set blind position"
                 print(msg)
-                conn.execute("UPDATE blinds SET position=? WHERE mac_address=?", (position, blind._device.addr))
+                print(blind._device.addr)
+                print(position)
+                result = conn.execute("UPDATE blinds SET position=? WHERE mac_address=?", (position, blind._device.addr.upper()))
                 conn.commit()
+                print(result)
                 print("Successfully updated blind in database")
+                print(get_blinds_from_db())
             except Exception as e:
                 msg="Error setting blind position"
                 print(msg)
@@ -160,7 +168,7 @@ def set_all_blinds_position(position):
                     blind.set_position(int(position))
                     msg="Successfully set blind position"
                     print(msg)
-                    conn.execute("UPDATE blinds SET position=? WHERE mac_address=?", (position, blind._device.addr))
+                    conn.execute("UPDATE blinds SET position=? WHERE mac_address=?", (position, blind._device.addr.upper()))
                     conn.commit()
                     print("Successfully updated blind in database")
                 except Exception as e:
@@ -268,7 +276,7 @@ def set_position():
         return "Invalid Request", 400
     elif 'mac_address' not in request.json and 'position' in request.json:
         set_all_blinds_position(position)
-        ping_thread = threading.Timer(60, ping_blind, args=(None, None, position))
+        ping_thread = threading.Timer(45, ping_blind, args=(None, None, position))
         ping_thread.start()
         print("thread started, waiting to ping")
         return get_blinds_from_db(), 201
