@@ -4,17 +4,42 @@
     <meta charset="UTF-8">
     <link rel="stylesheet" href="{{ url_for('static', filename= 'css/style.css') }}">
     <title>Blind Controller</title>
+    <script>
+        window.onload = function() {
+            var form = document.getElementById('addBlindForm');
+            var loadingMessage = document.getElementById('loadingMessage');
+    
+            form.onsubmit = function(e) {
+                e.preventDefault(); // Prevent the default form submission
+                loadingMessage.style.display = 'block'; // Show the loading message
+    
+                fetch('/blinds', {
+                    method: 'POST',
+                    body: new FormData(form)
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error("HTTP error " + response.status);
+                    }
+                    // Refresh the page when the response is received
+                    location.reload();
+                })
+                .catch((error) => {
+                    console.error('Error:', error);
+                    // If there was an error, hide the loading message
+                    loadingMessage.style.display = 'none';
+                });
+            };
+        };
+    </script>
 </head>
 <body>
-   <h1>Blind Controller Web</h1>
-   <!-- <div>
-    {% for blind in blinds %}
-    <p>{{ blind.name }} : {{ blind.mac_address }} = Battery: {{ blind.battery }} Position: {{ blind.position }}</p>
-   {% endfor %}
-   </div> -->
-   <table>
+    <h1>Blind Controller Web</h1>
+
+    <table id="blindsTable">
     <tr>
         <th>Name</th>
+        <th>Group</th>
         <th>Mac Address</th>
         <th>Battery</th>
         <th>Position</th>
@@ -22,6 +47,7 @@
     {% for blind in blinds %}
     <tr>
         <td>{{ blind.name }}</td>
+        <td>{{ blind.group }}</td>
         <td>{{ blind.mac_address }}</td>
         <td>{{ blind.battery }}</td>
         <td>{{ blind.position }}</td>
@@ -29,11 +55,13 @@
     {% endfor %}
    </table>
    <!-- button to add blind -->
-    <form action="{{ url_for('add_blind') }}" method="post">
-     <input type="text" name="name" placeholder="Name">
-     <input type="text" name="mac_address" placeholder="Mac Address">
-     <input type="submit" value="Add Blind">
-    </form>
-   
+   <form id="addBlindForm" action="{{ url_for('add_blind') }}" method="post">
+    <input type="text" name="name" placeholder="Name">
+    <input type="text" name="group" placeholder="Group">
+    <input type="text" name="mac_address" placeholder="Mac Address">
+    <input type="submit" value="Add Blind">
+</form>
+
+<p id="loadingMessage" style="display: none;">Loading...</p>
 </body>
 </html>
