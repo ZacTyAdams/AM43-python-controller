@@ -12,9 +12,48 @@ app = Flask(__name__)
 app.config["DEBUG"] = True
 app.run(host='0.0.0.0')
 
-def ping_blind(mac_address=None, blind=None, intended_position=None):
+def ping_blind(mac_address=None, group=None, blind=None, intended_position=None):
     conn = sqlite3.connect('am43.db')
     try:
+        blinds_list = get_blinds_from_db()
+        mac_list = []
+        blinds_list = json.loads(blinds_list)
+        for blind in blinds_list:
+            if group is None or group == blind['group']:
+                mac_list.append(str(blind['mac_address']))
+        print(mac_list)
+            
+        if len(mac_list) == 1:
+            blind = am43.search(*mac_list)
+            properties = blind.get_properties()
+            if intended_position is not None and int(properties.position) not in range(int(intended_position) - 5, int(intended_position) + 5):
+                blind.set_position(int(intended_position))
+                msg = "Not all blinds were set correctly retrying in 5 seconds: Blind %s, position %s" % (blind._device.addr, str(intended_position))
+                print(msg)
+                threading.Thread(target=set_blind_position, args=(blind._device.addr, intended_position, True)).start()
+            else:
+                conn.execute("UPDATE blinds SET battery=?, position=?, light=? WHERE mac_address=?", (properties.battery, properties.position, properties.light, blind._device.addr.upper()))
+                conn.commit()
+                msg="Successfully updated blind in database"
+                print(msg)
+                print(properties)
+            blind.disconnect()
+        else:
+            blinds = am43.search(*mac_list)
+            for blind in blinds:
+                properties = blind.get_properties()
+                if intended_position is not None and int(properties.position) not in range(int(intended_position) - 5, int(intended_position) + 5):
+                    blind.set_position(int(intended_position))
+                    msg = "Not all blinds were set correctly retrying in 5 seconds: Blind %s, position %s" % (blind._device.addr, str(intended_position))
+                    print(msg)
+                    threading.Thread(target=set_blind_position, args=(blind._device.addr, intended_position, True)).start()
+                else:
+                    conn.execute("UPDATE blinds SET battery=?, position=?, light=? WHERE mac_address=?", (properties.battery, properties.position, properties.light, blind._device.addr.upper()))
+                    conn.commit()
+                    msg="Successfully updated blind in database"
+                    print(msg)
+                    print(properties)
+                blind.disconnect()
         blinds_list = get_blinds_from_db()
         mac_list = []
         blinds_list = json.loads(blinds_list)
@@ -68,10 +107,10 @@ def ping_blind(mac_address=None, blind=None, intended_position=None):
         return msg
         
 
-def input_blind_to_db(name, mac_address, battery, position, light):
+def input_blind_to_db(name, group, mac_address, battery, position, light):
     try:
         conn = sqlite3.connect('am43.db')
-        conn.execute("INSERT INTO blinds VALUES (?, ?, ?, ?, ?)", (name, mac_address, battery, position, light))
+        conn.execute("INSERT INTO blinds VALUES (?, ?, ?, ?, ?, ?)", (name, group, mac_address, battery, position, light))
         conn.commit()
         msg="Successfully added blind to database"
         print(msg)
@@ -184,17 +223,78 @@ def set_all_blinds_position(position):
         return False
     print("Total time: " + str(round((time.time() - start_time), 2)) + " seconds")
     return True
-    
+
+def set_group_blinds_position(group, position):
+    start_time = time.time()
+    blinds_list = get_blinds_from_db()
+   
+    mac_list = []
+    blinds_list = json.loads(blinds_list)
+    print("Adding blinds belonging to group " + group + " to list")
+    for blind in blinds_list:
+        print("blind: " + str(blind))
+        print("blind group: " + blind['group'])
+        if blind['group'] == group:
+            mac_list.append(str(blind['mac_address']))
+    print("Setting blinds in group " + group)
+    print(mac_list)
+    try:
+        if len(mac_list) == 0:
+            print("No blinds found")
+            return False
+        # I know this is ugly but it's late and I need my blinds to work in the morning. Will clean tomorrow?
+        elif len(mac_list) == 1:
+            blind = am43.search(*mac_list)
+            conn = sqlite3.connect('am43.db') 
+            try:  
+                blind.set_position(int(position))
+                msg="Successfully set blind position"
+                print(msg)
+                conn.execute("UPDATE blinds SET position=? WHERE mac_address=?", (position, blind._device.addr))
+                conn.commit()
+                print("Successfully updated blind in database")
+            except Exception as e:
+                msg="Error setting blind position"
+                print(msg)
+                print(e)
+            finally:
+                conn.close()
+                blind.disconnect()
+        else:
+            blinds = am43.search(*mac_list)
+            for blind in blinds:
+                conn = sqlite3.connect('am43.db') 
+                try:  
+                    blind.set_position(int(position))
+                    msg="Successfully set blind position"
+                    print(msg)
+                    conn.execute("UPDATE blinds SET position=? WHERE mac_address=?", (position, blind._device.addr))
+                    conn.commit()
+                    print("Successfully updated blind in database")
+                except Exception as e:
+                    msg="Error setting blind position"
+                    print(msg)
+                    print(e)
+                finally:
+                    conn.close()
+                    blind.disconnect()
+    except Exception as e:
+        print("Error when trying to set all blinds position")
+        print(e)
+        return False
+    print("Total time: " + str(round((time.time() - start_time), 2)) + " seconds")
+    return True 
 # ping_thread = threading.Timer(30, ping_blind, [request.json['mac_address']])
 
 if os.path.exists('am43.db'):
-    print("Database exists, starting normally")
+    print("Database exists, starting connection")
 else:
     print("Database does not exist, creating");
     try:
         conn = sqlite3.connect('am43.db')
         conn.execute('''CREATE TABLE IF NOT EXISTS "blinds" (
             "name"	TEXT,
+            "group" TEXT,
             "mac_address"	TEXT,
             "battery"	INTEGER,
             "position"	INTEGER,
@@ -203,8 +303,9 @@ else:
         print("Database created, beginning first time setup")
         while(True):
             name = input("Please enter the name of the blind: ")
+            group = input("Please enter the group of the blind: ")
             mac_address = input("Please enter the mac address of this blind: ")
-            input_blind_to_db(name, mac_address, 0, 0, 0)
+            input_blind_to_db(name, group, mac_address, 0, 0, 0)
             ping_blind(mac_address)
             more_blinds = input("Do you want to add more blinds? (y/n): ")
             if more_blinds == "n":
@@ -248,6 +349,7 @@ def get_blinds():
 def add_blind():
     print(request.form)
     print(request.form["name"])
+    print(request.form["group"])
     print(request.form["mac_address"])
     # print(request.json['name'])
     # print(request.json['mac_address'])
@@ -256,8 +358,9 @@ def add_blind():
     #     return "Invalid Request", 400
 
     # input_blind_to_db(request.json['name'], request.json['mac_address'], 0, 0, 0)
-    input_blind_to_db(request.form["name"], request.form["mac_address"], 0, 0, 0)
-    ping_blind(request.json['mac_address'])
+    input_blind_to_db(request.form["name"], request.form["group"], request.form["mac_address"], 0, 0, 0)
+    # ping_blind(request.json['mac_address'])
+    ping_blind(request.form["mac_address"])
     return get_blinds_from_db(), 201
 
 @app.route('/blinds/set', methods=['POST'])
@@ -274,9 +377,16 @@ def set_position():
     if not request.json or 'position' not in request.json and 'mac_address' not in request.json:
         print(request.json)
         return "Invalid Request", 400
+    elif 'group' in request.json and 'position' in request.json:
+        print("Closing blinds in group: " + request.json['group'])
+        set_group_blinds_position(request.json['group'], position)
+        ping_thread = threading.Timer(60, ping_blind, args=(None, request.json['group'], position))
+        ping_thread.start()
+        print("thread started, waiting to ping")
+        return get_blinds_from_db(), 201
     elif 'mac_address' not in request.json and 'position' in request.json:
         set_all_blinds_position(position)
-        ping_thread = threading.Timer(45, ping_blind, args=(None, None, position))
+        ping_thread = threading.Timer(60, ping_blind, args=(None, None, position))
         ping_thread.start()
         print("thread started, waiting to ping")
         return get_blinds_from_db(), 201
