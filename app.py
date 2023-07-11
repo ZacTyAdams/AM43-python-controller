@@ -13,6 +13,7 @@ app.config["DEBUG"] = True
 app.run(host='0.0.0.0')
 
 def ping_blind(mac_address=None, group=None, blind=None, intended_position=None):
+    print("===In ping_blind===")
     conn = sqlite3.connect('am43.db')
     try:
         blinds_list = get_blinds_from_db()
@@ -20,7 +21,9 @@ def ping_blind(mac_address=None, group=None, blind=None, intended_position=None)
         blinds_list = json.loads(blinds_list)
         for blind in blinds_list:
             if group is None or group == blind['group']:
-                if intended_position != blind['position']:
+                print("Intended Position: " + str(intended_position))
+                print("Blind Position: " + str(blind['position']))
+                if intended_position is not None and intended_position != blind['position']:
                     msg = "Blind may have received another while this thread was in sleep, returning from this call"
                     print(msg)
                     return
@@ -72,6 +75,7 @@ def ping_blind(mac_address=None, group=None, blind=None, intended_position=None)
         
 
 def input_blind_to_db(name, group, mac_address, battery, position, light):
+    print("===In input_blind_to_db===")
     try:
         conn = sqlite3.connect('am43.db')
         conn.execute("INSERT INTO blinds VALUES (?, ?, ?, ?, ?, ?)", (name, group, mac_address, battery, position, light))
@@ -88,6 +92,7 @@ def input_blind_to_db(name, group, mac_address, battery, position, light):
         
 
 def get_blinds_from_db():
+    print("===In get_blinds_from_db===")
     try:
         conn = sqlite3.connect('am43.db')
         conn.row_factory = sqlite3.Row
@@ -104,6 +109,7 @@ def get_blinds_from_db():
         conn.close()
 
 def set_blind_position(mac_address, position, retry=False):
+    print("===In set_blind_position===")
     conn = sqlite3.connect('am43.db')
     try:
         blind = am43.search(mac_address)
@@ -129,6 +135,7 @@ def set_blind_position(mac_address, position, retry=False):
         return msg
 
 def set_all_blinds_position(position):
+    print("===In set_all_blinds_position===")
     start_time = time.time()
     blinds_list = get_blinds_from_db()
    
@@ -189,6 +196,7 @@ def set_all_blinds_position(position):
     return True
 
 def set_group_blinds_position(group, position):
+    print("===In set_group_blinds_position===")
     start_time = time.time()
     blinds_list = get_blinds_from_db()
    
