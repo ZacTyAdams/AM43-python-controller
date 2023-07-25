@@ -73,7 +73,6 @@ def ping_blind(mac_address=None, group=None, blind=None, intended_position=None)
         print("Finished updating blind db")
         return msg
         
-
 def input_blind_to_db(name, group, mac_address, battery, position, light):
     print("===In input_blind_to_db===")
     try:
@@ -91,12 +90,15 @@ def input_blind_to_db(name, group, mac_address, battery, position, light):
         return msg
         
 
-def get_blinds_from_db():
+def get_blinds_from_db(group=None):
     print("===In get_blinds_from_db===")
     try:
         conn = sqlite3.connect('am43.db')
         conn.row_factory = sqlite3.Row
-        blinds = conn.execute("SELECT * FROM blinds").fetchall()
+        if group is not None:
+            blinds = conn.execute("SELECT * FROM blinds WHERE group=?", (group,)).fetchall()
+        else:
+            blinds = conn.execute("SELECT * FROM blinds").fetchall()
         # cursor = conn.execute("SELECT * FROM blinds")
         # blinds = []
         # for row in cursor:
@@ -256,7 +258,70 @@ def set_group_blinds_position(group, position):
         return False
     print("Total time: " + str(round((time.time() - start_time), 2)) + " seconds")
     return True 
-# ping_thread = threading.Timer(30, ping_blind, [request.json['mac_address']])
+
+def update_blinds_in_db():
+    global blind_dict
+    print("===In update_blinds_in_db===")
+    conn = sqlite3.connect('am43.db')
+    try:
+        for blind in blind_dict.keys():
+            properties = blind_dict[blind].get_properties()
+            conn.execute("UPDATE blinds SET battery=?, position=?, light=? WHERE mac_address=?", (properties.battery, properties.position, properties.light, blind.upper()))
+            conn.commit()
+            msg="Successfully updated blind in database " + blind 
+            print(msg)
+            print(properties)
+    except Exception as e:
+        msg="Error updating blind in database, performing rollback"
+        print(msg)
+        print(e)
+        conn.rollback()
+    finally:
+        conn.close()
+        print("Finished updating blind db")
+        motion_in_progress = False
+        return
+
+def reconnect_to_blinds():
+    global blind_dict
+    print("===In reconnect_to_blinds===")
+    for blind in blind_dict.keys():
+        connected = False
+        blind_dict[blind].disconnect()
+        while not connected:
+            try:
+                blind_dict[blind] = am43.search(blind)
+                connected = True
+            except Exception as e:
+                print("Error connecting to blind, will try again: " + blind)
+                print(e)
+                time.sleep(5)
+        print("Reconnected to blind: " + blind)
+    update_blinds_in_db()
+
+def set_blinds_position(position=None, group=None, mac_address=None):
+    global blind_dict
+    global motion_in_progress
+    print("===In set_blinds_position===")
+    if position is None:
+        print("No position specified, returning")
+        return
+    motion_in_progress = True
+    if group is None and mac_address is None:
+        print("Setting all blinds to position: " + str(position))
+        for blind in blind_dict.keys():
+            blind_dict[blind].set_position(int(position))
+            print("Successfully set blind position")
+    elif group is not None:
+        print("Setting all blinds in group " + group + " to position: " + str(position))
+        blind_group = get_blinds_from_db(group)
+        for blind in blind_group:
+            blind_dict[blind['mac_address']].set_position(int(position))
+            print("Successfully set blind position")
+    elif mac_address is not None:
+        print("Setting blind " + mac_address + " to position: " + str(position))
+        blind_dict[mac_address].set_position(int(position))
+        print("Successfully set blind position")
 
 if os.path.exists('am43.db'):
     print("Database exists, starting connection")
@@ -278,7 +343,7 @@ else:
             group = input("Please enter the group of the blind: ")
             mac_address = input("Please enter the mac address of this blind: ")
             input_blind_to_db(name, group, mac_address, 0, 0, 0)
-            ping_blind(mac_address)
+            reconnect_to_blinds()
             more_blinds = input("Do you want to add more blinds? (y/n): ")
             if more_blinds == "n":
                 break
@@ -304,6 +369,24 @@ except:
 
 conn.close()
 
+print("Attempting to connect to all blinds in db")
+blind_dict = {}
+motion_in_progress = False
+blinds = json.loads(get_blinds_from_db())
+for blind in blinds:
+    connected = False
+    while not connected:
+        try:
+            blind_dict[blind['mac_address']] = am43.search(blind['mac_address'])
+            connected = True
+        except Exception as e:
+            print("Failed to connect, will try again in 5 seconds")
+            print(e)
+            time.sleep(5)
+
+print("Successfully connected to all blinds in db, attempting to update db") 
+update_blinds_in_db() 
+
 @app.route('/')
 def index():
     # return 'Hello, World!'
@@ -315,6 +398,7 @@ def index():
 
 @app.route('/blinds', methods=['GET'])
 def get_blinds():
+    global motion_in_progress
     return get_blinds_from_db()
 
 @app.route('/blinds', methods=['POST'])
@@ -323,16 +407,10 @@ def add_blind():
     print(request.form["name"])
     print(request.form["group"])
     print(request.form["mac_address"])
-    # print(request.json['name'])
-    # print(request.json['mac_address'])
-    # if not request.json or not 'mac_address' in request.json or not 'name' in request.json:
-    #     print(request.json)
-    #     return "Invalid Request", 400
 
-    # input_blind_to_db(request.json['name'], request.json['mac_address'], 0, 0, 0)
     input_blind_to_db(request.form["name"], request.form["group"], request.form["mac_address"], 0, 0, 0)
-    # ping_blind(request.json['mac_address'])
-    ping_blind(request.form["mac_address"])
+    reconnect_to_blinds()
+
     return get_blinds_from_db(), 201
 
 @app.route('/blinds/set', methods=['POST'])
@@ -351,37 +429,38 @@ def set_position():
         return "Invalid Request", 400
     elif 'group' in request.json and 'position' in request.json:
         print("Closing blinds in group: " + request.json['group'])
-        set_group_blinds_position(request.json['group'], position)
-        ping_thread = threading.Timer(60, ping_blind, args=(None, request.json['group'], None, position))
-        ping_thread.start()
-        print("thread started, waiting to ping")
+        # set_group_blinds_position(request.json['group'], position)
+        set_blinds_position(position=position, group=request.json['group'])
+        # ping_thread = threading.Timer(60, ping_blind, args=(None, request.json['group'], None, position))
+        # ping_thread.start()
+        update_blinds_in_db_thread = threading.Timer(30, update_blinds_in_db)
+        update_blinds_in_db_thread.start()
+        print("thread started, waiting to update")
         return get_blinds_from_db(), 201
     elif 'mac_address' not in request.json and 'position' in request.json:
-        set_all_blinds_position(position)
-        ping_thread = threading.Timer(60, ping_blind, args=(None, None, None, position))
-        ping_thread.start()
-        print("thread started, waiting to ping")
+        set_blinds_position(position=position)
+        # ping_thread = threading.Timer(60, ping_blind, args=(None, None, None, position))
+        # ping_thread.start()
+        # print("thread started, waiting to ping")
+        update_blinds_in_db_thread = threading.Timer(30, update_blinds_in_db)
+        update_blinds_in_db_thread.start()
+        print("thread started, waiting to update")
         return get_blinds_from_db(), 201
     else:
-        set_blind_position(request.json['mac_address'], position)
-        ping_thread = threading.Timer(30, ping_blind, [request.json['mac_address']])
-        ping_thread.start()
-        print("thread started, waiting to ping")
-        
+        # set_blind_position(request.json['mac_address'], position)
+        set_blinds_position(position=position, mac_address=request.json['mac_address'])
+        # ping_thread = threading.Timer(30, ping_blind, [request.json['mac_address']])
+        # ping_thread.start()
+        # print("thread started, waiting to ping")
+        update_blinds_in_db_thread = threading.Timer(30, update_blinds_in_db)
+        update_blinds_in_db_thread.start()
+        print("thread started, waiting to update")
         # ping_blind(request.json['mac_address'])
         return get_blinds_from_db(), 201
 
 @app.route('/blinds/update', methods=['GET'])
 def force_update():
-    print("printing args")
-    if request.json and 'mac_address' in request.json:
-        print(request.json['mac_address'])
-        # for arg in request.args:
-        print("pinging " + request.json['mac_address'])
-        ping_blind(request.json['mac_address'])
-    else:
-        print("pinging all")
-        ping_blind()
+    update_blinds_in_db()
     return get_blinds_from_db(), 201
 
 @app.errorhandler(404)
