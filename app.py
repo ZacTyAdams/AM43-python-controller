@@ -96,7 +96,7 @@ def get_blinds_from_db(group=None):
         conn = sqlite3.connect('am43.db')
         conn.row_factory = sqlite3.Row
         if group is not None:
-            blinds = conn.execute("SELECT * FROM blinds WHERE group=?", (group,)).fetchall()
+            blinds = conn.execute('SELECT * FROM blinds WHERE "group"="?"', (group)).fetchall()
         else:
             blinds = conn.execute("SELECT * FROM blinds").fetchall()
         # cursor = conn.execute("SELECT * FROM blinds")
@@ -323,6 +323,9 @@ def set_blinds_position(position=None, group=None, mac_address=None):
         blind_dict[mac_address].set_position(int(position))
         print("Successfully set blind position")
 
+blind_dict = {}
+motion_in_progress = False
+
 if os.path.exists('am43.db'):
     print("Database exists, starting connection")
 else:
@@ -370,8 +373,6 @@ except:
 conn.close()
 
 print("Attempting to connect to all blinds in db")
-blind_dict = {}
-motion_in_progress = False
 blinds = json.loads(get_blinds_from_db())
 for blind in blinds:
     connected = False
@@ -379,6 +380,7 @@ for blind in blinds:
         try:
             blind_dict[blind['mac_address']] = am43.search(blind['mac_address'])
             connected = True
+            print("Established connection to " + blind['name'])
         except Exception as e:
             print("Failed to connect, will try again in 5 seconds")
             print(e)
@@ -433,7 +435,7 @@ def set_position():
         set_blinds_position(position=position, group=request.json['group'])
         # ping_thread = threading.Timer(60, ping_blind, args=(None, request.json['group'], None, position))
         # ping_thread.start()
-        update_blinds_in_db_thread = threading.Timer(30, update_blinds_in_db)
+        update_blinds_in_db_thread = threading.Timer(45, update_blinds_in_db)
         update_blinds_in_db_thread.start()
         print("thread started, waiting to update")
         return get_blinds_from_db(), 201
@@ -442,7 +444,7 @@ def set_position():
         # ping_thread = threading.Timer(60, ping_blind, args=(None, None, None, position))
         # ping_thread.start()
         # print("thread started, waiting to ping")
-        update_blinds_in_db_thread = threading.Timer(30, update_blinds_in_db)
+        update_blinds_in_db_thread = threading.Timer(45, update_blinds_in_db)
         update_blinds_in_db_thread.start()
         print("thread started, waiting to update")
         return get_blinds_from_db(), 201
@@ -452,7 +454,7 @@ def set_position():
         # ping_thread = threading.Timer(30, ping_blind, [request.json['mac_address']])
         # ping_thread.start()
         # print("thread started, waiting to ping")
-        update_blinds_in_db_thread = threading.Timer(30, update_blinds_in_db)
+        update_blinds_in_db_thread = threading.Timer(45, update_blinds_in_db)
         update_blinds_in_db_thread.start()
         print("thread started, waiting to update")
         # ping_blind(request.json['mac_address'])

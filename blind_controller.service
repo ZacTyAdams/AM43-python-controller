@@ -3,7 +3,7 @@ Description=A controller for the AM43 smart blind motor.
 After=network.target
 
 [Service]
-WorkingDirectory=/AM43-python-controller
+WorkingDirectory=/home/zacadams/AM43
 ExecStart=flask run --host=0.0.0.0
 Restart=always
 
