@@ -117,7 +117,8 @@ def set_blind_position(mac_address, position, retry=False):
         blind.set_position(int(position))
         msg="Successfully set blind position"
         print(msg)
-        conn.execute("UPDATE blinds SET position=? WHERE mac_address=?", (position, mac_address))
+        query = f'UPDATE blinds SET position={position} WHERE mac_address="{blind._device.addr.upper()}"'
+        conn.execute(query)
         conn.commit()
         print("Successfully updated blind in database")
         if retry:
@@ -144,25 +145,45 @@ def set_all_blinds_position(position):
     for blind in blinds_list:
         mac_list.append(str(blind['mac_address']))
     print(mac_list)
-    try:
-        if len(mac_list) == 0:
-            print("No blinds found")
-            return False
-        # I know this is ugly but it's late and I need my blinds to work in the morning. Will clean tomorrow?
-        elif len(mac_list) == 1:
-            blind = am43.search(*mac_list)
+    # try:
+    if len(mac_list) == 0:
+        print("No blinds found")
+        return False
+    # I know this is ugly but it's late and I need my blinds to work in the morning. Will clean tomorrow?
+    elif len(mac_list) == 1:
+        blind = am43.search(*mac_list)
+        conn = sqlite3.connect('am43.db') 
+        try:  
+            blind.set_position(int(position))
+            msg="Successfully set blind position"
+            print(msg)
+            print(blind._device.addr)
+            print(position)
+            query = f'UPDATE blinds SET position={position} WHERE mac_address="{blind._device.addr.upper()}"'
+            result = conn.execute(query)
+            conn.commit()
+            print(result)
+            print("Successfully updated blind in database")
+            print(get_blinds_from_db())
+        except Exception as e:
+            msg="Error setting blind position"
+            print(msg)
+            print(e)
+        finally:
+            conn.close()
+            blind.disconnect()
+    else:
+        blinds = am43.search(*mac_list)
+        for blind in blinds:
             conn = sqlite3.connect('am43.db') 
             try:  
                 blind.set_position(int(position))
                 msg="Successfully set blind position"
                 print(msg)
-                print(blind._device.addr)
-                print(position)
-                result = conn.execute("UPDATE blinds SET position=? WHERE mac_address=?", (position, blind._device.addr.upper()))
+                query = f'UPDATE blinds SET position={position} WHERE mac_address="{blind._device.addr.upper()}"'
+                conn.execute(query)
                 conn.commit()
-                print(result)
                 print("Successfully updated blind in database")
-                print(get_blinds_from_db())
             except Exception as e:
                 msg="Error setting blind position"
                 print(msg)
@@ -170,28 +191,10 @@ def set_all_blinds_position(position):
             finally:
                 conn.close()
                 blind.disconnect()
-        else:
-            blinds = am43.search(*mac_list)
-            for blind in blinds:
-                conn = sqlite3.connect('am43.db') 
-                try:  
-                    blind.set_position(int(position))
-                    msg="Successfully set blind position"
-                    print(msg)
-                    conn.execute("UPDATE blinds SET position=? WHERE mac_address=?", (position, blind._device.addr.upper()))
-                    conn.commit()
-                    print("Successfully updated blind in database")
-                except Exception as e:
-                    msg="Error setting blind position"
-                    print(msg)
-                    print(e)
-                finally:
-                    conn.close()
-                    blind.disconnect()
-    except Exception as e:
-        print("Error when trying to set all blinds position")
-        print(e)
-        return False
+    # except Exception as e:
+    #     print("Error when trying to set all blinds position")
+    #     print(e)
+    #     return False
     print("Total time: " + str(round((time.time() - start_time), 2)) + " seconds")
     return True
 
@@ -210,19 +213,39 @@ def set_group_blinds_position(group, position):
             mac_list.append(str(blind['mac_address']))
     print("Setting blinds in group " + group)
     print(mac_list)
-    try:
-        if len(mac_list) == 0:
-            print("No blinds found")
-            return False
-        # I know this is ugly but it's late and I need my blinds to work in the morning. Will clean tomorrow?
-        elif len(mac_list) == 1:
-            blind = am43.search(*mac_list)
+    # try:
+    if len(mac_list) == 0:
+        print("No blinds found")
+        return False
+    # I know this is ugly but it's late and I need my blinds to work in the morning. Will clean tomorrow?
+    elif len(mac_list) == 1:
+        blind = am43.search(*mac_list)
+        conn = sqlite3.connect('am43.db') 
+        try:  
+            blind.set_position(int(position))
+            msg="Successfully set blind position"
+            print(msg)
+            query = f'UPDATE blinds SET position={position} WHERE mac_address="{blind._device.addr.upper()}"'
+            conn.execute(query)
+            conn.commit()
+            print("Successfully updated blind in database")
+        except Exception as e:
+            msg="Error setting blind position"
+            print(msg)
+            print(e)
+        finally:
+            conn.close()
+            blind.disconnect()
+    else:
+        blinds = am43.search(*mac_list)
+        for blind in blinds:
             conn = sqlite3.connect('am43.db') 
             try:  
                 blind.set_position(int(position))
                 msg="Successfully set blind position"
                 print(msg)
-                conn.execute("UPDATE blinds SET position=? WHERE mac_address=?", (position, blind._device.addr))
+                query = f'UPDATE blinds SET position={position} WHERE mac_address="{blind._device.addr.upper()}"'
+                conn.execute(query)
                 conn.commit()
                 print("Successfully updated blind in database")
             except Exception as e:
@@ -232,28 +255,10 @@ def set_group_blinds_position(group, position):
             finally:
                 conn.close()
                 blind.disconnect()
-        else:
-            blinds = am43.search(*mac_list)
-            for blind in blinds:
-                conn = sqlite3.connect('am43.db') 
-                try:  
-                    blind.set_position(int(position))
-                    msg="Successfully set blind position"
-                    print(msg)
-                    conn.execute("UPDATE blinds SET position=? WHERE mac_address=?", (position, blind._device.addr))
-                    conn.commit()
-                    print("Successfully updated blind in database")
-                except Exception as e:
-                    msg="Error setting blind position"
-                    print(msg)
-                    print(e)
-                finally:
-                    conn.close()
-                    blind.disconnect()
-    except Exception as e:
-        print("Error when trying to set all blinds position")
-        print(e)
-        return False
+    # except Exception as e:
+    #     print("Error when trying to set all blinds position")
+    #     print(e)
+    #     return False
     print("Total time: " + str(round((time.time() - start_time), 2)) + " seconds")
     return True 
 # ping_thread = threading.Timer(30, ping_blind, [request.json['mac_address']])
